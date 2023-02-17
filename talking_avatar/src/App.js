@@ -14,7 +14,7 @@ import * as THREE from 'three';
 import axios from 'axios';
 const _ = require('lodash');
 
-const host = 'http://localhost:5000'
+const host =  'http://localhost:5000'
 
 function Avatar({ avatar_url, speak, setSpeak, text, setAudioSource, playing }) {
 
@@ -187,13 +187,13 @@ function Avatar({ avatar_url, speak, setSpeak, text, setAudioSource, playing }) 
   const mixer = useMemo(() => new THREE.AnimationMixer(gltf.scene), []);
 
   useEffect(() => {
-
-    if (speak === false)
+    console.log('text is ',text)
+    if (speak === false || text.length === 0)
       return;
 
     makeSpeech(text)
     .then( response => {
-
+      text = '';
       let {blendData, filename}= response.data;
 
       let newClips = [ 
@@ -212,7 +212,7 @@ function Avatar({ avatar_url, speak, setSpeak, text, setAudioSource, playing }) 
 
     })
 
-  }, [speak]);
+  }, [morphTargetDictionaryBody, morphTargetDictionaryLowerTeeth, setAudioSource, setSpeak, speak, text]);
 
   let idleFbx = useFBX('/idle.fbx');
   let { clips: idleClips } = useAnimations(idleFbx.animations);
@@ -281,7 +281,9 @@ function Avatar({ avatar_url, speak, setSpeak, text, setAudioSource, playing }) 
 
 
 function makeSpeech(text) {
-  return axios.post(host + '/talk', { text });
+    return axios.post(host + '/talk', { text });
+
+ 
 }
 
 const STYLES = {
@@ -297,7 +299,7 @@ function App() {
   const audioPlayer = useRef();
 
   const [speak, setSpeak] = useState(false);
-  const [text, setText] = useState("My name is Arwen. I'm a virtual human who can speak whatever you type here along with realistic facial movements.");
+  const [text, setText] = useState("");
   const [audioSource, setAudioSource] = useState(null);
   const [playing, setPlaying] = useState(false);
 
@@ -329,6 +331,7 @@ if (!('webkitSpeechRecognition' in window)) {
   recognition.interimResults = true;
 
   recognition.onstart = function() {
+    console.log('start');
     recognizing = true;
    // showInfo('info_speak_now');
    // start_img.src = 'mic-animate.gif';
@@ -336,16 +339,19 @@ if (!('webkitSpeechRecognition' in window)) {
 
   recognition.onerror = function(event) {
     if (event.error == 'no-speech') {
+       console.log('no-speech');
       // start_img.src = 'mic.gif';
       // showInfo('info_no_speech');
       ignore_onend = true;
     }
     if (event.error == 'audio-capture') {
+      console.log('audio-capture');
       // start_img.src = 'mic.gif';
       // showInfo('info_no_microphone');
       ignore_onend = true;
     }
     if (event.error == 'not-allowed') {
+      console.log('not-allowed');
       if (event.timeStamp - start_timestamp < 100) {
         // showInfo('info_blocked');
       } else {
@@ -356,6 +362,7 @@ if (!('webkitSpeechRecognition' in window)) {
   };
 
   recognition.onend = function() {
+    console.log('onend');
     recognizing = false;
     if (ignore_onend) {
       return;
@@ -365,6 +372,8 @@ if (!('webkitSpeechRecognition' in window)) {
       // showInfo('info_start');
       return;
     }
+   
+   
     // showInfo('');
    
   };
@@ -377,42 +386,38 @@ if (!('webkitSpeechRecognition' in window)) {
       } else {
         interim_transcript += event.results[i][0].transcript;
       }
+      console.log('onresult final', final_transcript );
+      console.log('onresult interim', interim_transcript );
+      if(final_transcript.length > 0){
+        setText(final_transcript);
+        setSpeak(false);
+        final_transcript = '';
+        recognition.stop();
+      }
+  
     }
-    //final_transcript = capitalize(final_transcript);
-    // final_span.innerHTML = linebreak(final_transcript);
-    // interim_span.innerHTML = linebreak(interim_transcript);
-    // if (final_transcript || interim_transcript) {
-    //   showButtons('inline-block');
-    // }
+   
   };
 }
 
-// function upgrade() {
-//   start_button.style.visibility = 'hidden';
-//   showInfo('info_upgrade');
+
   function startButton(event) {
     if (recognizing) {
       recognition.stop();
       return;
     }
+    setSpeak(true);
     final_transcript = '';
-    // recognition.lang = select_dialect.value;
     recognition.start();
     ignore_onend = false;
-    // final_span.innerHTML = '';
-    // interim_span.innerHTML = '';
-    // start_img.src = 'mic-slash.gif';
-    // showInfo('info_allow');
-    // showButtons('none');
     start_timestamp = event.timeStamp;
   }
 
   return (
     <div className="full">
       <div style={STYLES.area}>
-        <textarea rows={4} type="text" style={STYLES.text} value={text} onChange={(e) => setText(e.target.value.substring(0, 200))} />
-        <button onClick={() => setSpeak(true)} style={STYLES.speak}> { speak? 'Running...': 'Speak' }</button>
-        <button onClick={(event) => startButton(event)}>listen</button>
+      
+        <button onClick={(event) => startButton(event)}>{speak? 'stop listening...': 'listen'}</button>
 
       </div>
 
